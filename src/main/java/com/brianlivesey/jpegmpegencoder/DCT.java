@@ -29,6 +29,9 @@ public class DCT {
     FileOutputStream fOut;
     FileInputStream fIn;
 
+    // Debug
+    int pblocks = 0;
+
     // Q-tables courtesy of Grayden Holmes, what a guy
     int[][] luminanceTable = {
             {16, 11, 10, 16, 24, 40, 51, 61},
@@ -78,8 +81,8 @@ public class DCT {
     }
 
     public DCT(FileInputStream rleData) {
-        this.width = 80;        // Gonna have to read this from file header later
-        this.height = 80;
+        this.width = 164;        // Gonna have to read this from file header later
+        this.height = 164;
         fIn = rleData;
         blockWidth = (int) Math.ceil((width / (double) BLOCKSIZE));
         blocks = (int)(blockWidth * Math.ceil(height / (double)BLOCKSIZE));
@@ -170,7 +173,7 @@ public class DCT {
 
 
     public int blockToIndex(int blockNo, int arrayWidth) {
-        int blocksPerRow = arrayWidth / BLOCKSIZE + arrayWidth % BLOCKSIZE;
+        int blocksPerRow = (int)Math.ceil(arrayWidth / (double)BLOCKSIZE);
         int blockX = blockNo % blocksPerRow;
         int blockY = blockNo / blocksPerRow;
         return blockY * BLOCKSIZE * arrayWidth + blockX * BLOCKSIZE;
@@ -189,12 +192,38 @@ public class DCT {
     }
 
     public void putBlock(int blockNo, byte[][] input, byte[] storage) {
-        int arrayWidth = storage == Y ? width : (width / 2 + width % 2);
+        int arrayWidth = storage == Y ? width : cwidth;
+        int arrayHeight = storage == Y ? height : cheight;
+        int arrayBlockWidth = storage == Y ? blockWidth : cblockWidth;
+        int arrayBlocks = storage == Y ? blocks : cblocks;
 
         int startIndex = blockToIndex(blockNo, arrayWidth);
-        for (int x = 0; x < BLOCKSIZE; ++x) {
-            for (int y = 0; y < BLOCKSIZE; ++y) {
-                storage[startIndex + y * arrayWidth + x] = input[x][y];
+
+        // Handle partial blocks
+        int partialWidth = arrayWidth % BLOCKSIZE;
+        int partialHeight = arrayHeight % BLOCKSIZE;
+        // Is block being put a partial X and/or partial Y block
+        boolean partialX = (partialWidth > 0 && (blockNo + 1) % arrayBlockWidth == 0);
+        boolean partialY = (partialHeight > 0 && blockNo >= arrayBlocks - arrayBlockWidth - 1);
+        boolean partialBlock = blockNo > 0 && (partialX || partialY);
+
+        // Separate loops to improve efficiency
+        if (partialBlock) {
+            ++pblocks;
+            // If block is not partial in one direction, default that direction to blocksize
+            partialWidth = partialWidth == 0 || !partialX ? BLOCKSIZE : partialWidth;
+            partialHeight = partialHeight == 0 || !partialY ? BLOCKSIZE : partialHeight;
+
+            for (int x = 0; x < partialWidth; ++x) {
+                for (int y = 0; y < partialHeight; ++y) {
+                    storage[startIndex + y * arrayWidth + x] = input[x][y];
+                }
+            }
+        } else {
+            for (int x = 0; x < BLOCKSIZE; ++x) {
+                for (int y = 0; y < BLOCKSIZE; ++y) {
+                    storage[startIndex + y * arrayWidth + x] = input[x][y];
+                }
             }
         }
     }
@@ -255,8 +284,19 @@ public class DCT {
     public double[][] discreteCosine (int blockNo, byte[] source) {
         double a = 1 / Math.sqrt(2);
         double[][] output = new double[BLOCKSIZE][ BLOCKSIZE];
-        int arrayWidth = source == Y ? width : (width / 2 + width % 2);
+        int arrayWidth = source == Y ? width : cwidth;
+        int arrayHeight = source == Y ? height : cheight;
         int offset = blockToIndex(blockNo, arrayWidth);
+
+        // Handle partial blocks
+        int partialWidth = arrayWidth % BLOCKSIZE;
+        int partialHeight = arrayHeight % BLOCKSIZE;
+        boolean partialBlock = partialWidth > 0 || partialHeight > 0;
+        int partialWidthOffset = 0;
+        int partialHeightOffset = 0;
+
+        // Debug
+        boolean pBlockDetect = false;
 
 
         for (int u = 0 ; u < BLOCKSIZE ; ++u) {
@@ -264,9 +304,20 @@ public class DCT {
                 double sum = 0;
                 for (int x = 0; x < BLOCKSIZE; ++x) {
                     for (int y = 0; y < BLOCKSIZE; ++y) {
-                        // byte g = getByte(x, y, offset, arrayWidth, source);
-                        // Subtract 128 before DCT calculation for zero-average
-                        int g = source[offset + y * arrayWidth + x];
+                        // partial blocks feed duplicate edge values into DCT for past-edge values
+                        boolean partialX = (offset % arrayWidth + x) >= arrayWidth;
+                        boolean partialY = (offset + x + y * arrayWidth) >= source.length;
+                        if (partialBlock && (partialX || partialY)) {
+                            // Debug
+                            pBlockDetect = true;
+
+                            partialWidthOffset = partialX ? (x < partialWidth ? 0 : x - partialWidth + 1) : 0;
+                            partialHeightOffset = partialY ? (y < partialHeight ? 0 : y - partialHeight + 1) : 0;
+                        } else {
+                            partialWidthOffset = 0;
+                            partialHeightOffset = 0;
+                        }
+                        int g = source[offset + y * arrayWidth + x - partialWidthOffset - partialHeightOffset * arrayWidth];
                         sum += g * Math.cos((2 * x + 1) * u * Math.PI / 16) * Math.cos((2 * y + 1) * v * Math.PI / 16);
                     }
                 }
@@ -274,6 +325,10 @@ public class DCT {
                 output[u][v] = 0.25 * ( u == 0 ? a : 1) * ( v == 0 ? a : 1) * sum;
             }
         }
+        // Debug
+        pblocks += pBlockDetect ? 1 : 0;
+        Log.d("Block", (source == Y ? "Luma" : "Chroma") + Integer.toString(blockNo) + " - " + (pBlockDetect ? "Partial" : "-"));
+
         return output;
     }
 
@@ -288,8 +343,6 @@ public class DCT {
                 double sum = 0;
                 for (int u = 0; u < BLOCKSIZE; ++u) {
                     for (int v = 0; v < BLOCKSIZE; ++v) {
-                        // byte g = getByte(x, y, offset, arrayWidth, source);
-                        // Subtract 128 before DCT calculation for zero-average
                         double F = input[u][v];
                         sum += ( u == 0 ? a : 1) * ( v == 0 ? a : 1) * F *
                                 Math.cos((2 * x + 1) * u * Math.PI / 16) * Math.cos((2 * y + 1) * v * Math.PI / 16);

@@ -62,7 +62,7 @@ public class MainActivity extends AppCompatActivity {
         });
 
         // Set up default images
-        source = BitmapFactory.decodeResource(getApplicationContext().getResources(), R.drawable.baboon80);
+        source = BitmapFactory.decodeResource(getApplicationContext().getResources(), R.drawable.baboon164x164);
         sourceDrawable = new BitmapDrawable(getResources(), source);
         frameList.add(sourceDrawable);
     }
@@ -133,17 +133,7 @@ public class MainActivity extends AppCompatActivity {
                     CbDisplay[i] = unconvert((byte)0, Cbbits - 128, (byte)0);
                 }
             }
-            // Debug
-            /*
-            if (i % 1000 == 0) {
-                Log.d("PIXEL", "Y: " + Integer.toString(Yval)
-                        + "  Cr: " + Color.red(YCbCrPixels[i])
-                        + "  Cb: " + Color.blue(YCbCrPixels[i]));
-            }
-            */
 
-            // Recombine YCbCr channels into RGB pixels
-            // outputPixels[i] = unconvert(YPixels[i], Cbbits - 128, Crbits - 128);
         }
 
         // Reconstitute
@@ -173,16 +163,6 @@ public class MainActivity extends AppCompatActivity {
         BitmapDrawable CbDrawable = new BitmapDrawable(getResources(), Cb);
         BitmapDrawable outputDrawable = new BitmapDrawable(getResources(), output);
 
-        /*
-        frameList.add(outputDrawable);
-        frameList.add(YDrawable);
-        frameList.add(CbDrawable);
-        frameList.add(CrDrawable);
-        */
-
-        // Open file for writing
-        // File myFile = new File("/Download/digibro.txt");
-
 
         File myFile = new File(getApplicationContext().getFilesDir(), "digibro.txt");
         FileOutputStream fOut = null;
@@ -190,36 +170,10 @@ public class MainActivity extends AppCompatActivity {
             myFile.createNewFile();
             fOut = new FileOutputStream(myFile);
 
-
-
             // Begin DCT
             jpeg = new DCT(YPixels, CbPixels, CrPixels, width, fOut);
             jpeg.write();
-            /*
-            byte[][] bt = jpeg.getBlock(50, width, jpeg.Y);
-            double[][] dctOutput = jpeg.discreteCosine(50, jpeg.Y);
-            byte[][] quantized = jpeg.quantize(dctOutput, true);
-            byte[] zigzagged = jpeg.zigzag(quantized);
-            byte[] encoded = jpeg.rle(zigzagged);
 
-            // Write that bitch to file:
-
-            // File myFile = new File("/Download/digibro.txt");
-            // File myFile = new File(getApplicationContext().getFilesDir(), "digibro.txt");
-            // myFile.createNewFile();
-            // FileOutputStream fOut = new FileOutputStream(myFile);
-            byte previous = 1;
-            int i = 0;
-            // Find index of last byte to write (second zero in terminating '00', or index 63)
-            for (; i < encoded.length ; ++i) {
-                if (previous == 0 && encoded[i] == 0) {
-                    break;
-                }
-                previous = encoded[i];
-            }
-            fOut.write(encoded, 0, ++i);
-            fOut.close();
-            */
         } catch (Exception e) {
             Toast.makeText(getBaseContext(), e.getMessage(),
                     Toast.LENGTH_SHORT).show();
@@ -227,9 +181,6 @@ public class MainActivity extends AppCompatActivity {
         }
 
         // Read data back from file
-
-
-        // byte[] fileBytes = new byte[64];
         DCT input = null;
         try {
             FileInputStream inFile = openFileInput("digibro.txt");
@@ -242,19 +193,6 @@ public class MainActivity extends AppCompatActivity {
                     Toast.LENGTH_SHORT).show();
             Log.d("readError", e.getMessage());
         }
-
-        // Check Y channel for mojo
-        /*
-        int[] Ydecompressed = new int[input.Y.length];
-        for (int i = 0 ; i < Ydecompressed.length ; ++i) {
-            Ydecompressed[i] = unconvert(input.Y[i], (byte)0, (byte)0);
-        }
-        Bitmap YdecBMP = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
-        YdecBMP.setPixels(Ydecompressed, 0, width, 0, 0, width, height);
-        BitmapDrawable YdecDrawable = new BitmapDrawable(getResources(), YdecBMP);
-        */
-
-        // frameList.add(YdecDrawable);
 
         // Reconstitute, again :P
         int[] CbDecoded = new int[input.Y.length];
@@ -290,101 +228,10 @@ public class MainActivity extends AppCompatActivity {
         frameList.add(decodedCbDrawable);
         frameList.add(decodedCrDrawable);
 
-        // frameList.add(YDrawable);
-        // frameList.add(CbDrawable);
-        // frameList.add(CrDrawable);
+        // Debug
+        Log.d("JPEGpblocks", Integer.toString(jpeg.pblocks));
+        Log.d("INPUTpblocks", Integer.toString(input.pblocks));
 
-
-        /*
-        byte[] unencoded = jpeg.unrle(encoded);
-        byte[][] unzigzagged = jpeg.unzigzag(zigzagged);
-        double[][] unquantized = jpeg.unquantize(quantized, true);
-        byte[][] idctOutput = jpeg.indiscreteCosine(unquantized);
-
-
-
-        /*
-        for (int i = 0 ; i < 8 ; ++i) {
-            String temp = "";
-            for (int j = 0 ; j < 8 ; ++j) {
-                temp += bt[i][j] + " ";
-            }
-            Log.d("PIXEL", temp);
-        }
-
-        Log.d("-", "-");
-
-        for (int i = 0 ; i < 8 ; ++i) {
-            String temp = "";
-            for (int j = 0 ; j < 8 ; ++j) {
-                temp += dctOutput[i][j] + " ";
-            }
-            Log.d("DCT", temp);
-        }
-
-        Log.d("-", "-");
-
-        for (int i = 0 ; i < 8 ; ++i) {
-            String temp = "";
-            for (int j = 0 ; j < 8 ; ++j) {
-                temp += (quantized[i][j] + 0) + " ";
-            }
-            Log.d("QUANT", temp);
-        }
-
-        String temp3 = "";
-        for (int i = 0 ; i < 64 ; ++i) {
-            temp3 += zigzagged[i] + " ";
-        }
-        Log.d("ZIG", temp3);
-        Log.d("-", "-");
-
-        temp3 = "";
-        for (int i = 0 ; i < 64 ; ++i) {
-            temp3 += encoded[i] + " ";
-        }
-        Log.d("RLE", temp3);
-        Log.d("-", "-");
-
-        temp3 = "";
-        for (int i = 0 ; i < 64 ; ++i) {
-            temp3 += fileBytes[i] + " ";
-        }
-        Log.d("READ_FILE", temp3);
-        Log.d("-", "-");
-
-        temp3 = "";
-        for (int i = 0 ; i < 64 ; ++i) {
-            temp3 += unencoded[i] + " ";
-        }
-        Log.d("unRLE", temp3);
-        Log.d("-", "-");
-
-        for (int i = 0 ; i < 8 ; ++i) {
-            String temp = "";
-            for (int j = 0 ; j < 8 ; ++j) {
-                temp += unzigzagged[i][j] + " ";
-            }
-            Log.d("unZIG", temp);
-        }
-        Log.d("-", "-");
-
-        for (int i = 0 ; i < 8 ; ++i) {
-            String temp = "";
-            for (int j = 0 ; j < 8 ; ++j) {
-                temp += unquantized[i][j] + " ";
-            }
-            Log.d("unQUANT", temp);
-        }
-        Log.d("-", "-");
-        for (int i = 0 ; i < 8 ; ++i) {
-            String temp = "";
-            for (int j = 0 ; j < 8 ; ++j) {
-                temp += idctOutput[i][j] + " ";
-            }
-            Log.d("iDCT", temp);
-        }
-        */
     }
 
     // Button WRITE FILE
