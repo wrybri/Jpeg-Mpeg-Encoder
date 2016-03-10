@@ -14,17 +14,8 @@
         android:layout_height="1100px"
         android:id="@+id/imageView"
         android:layout_centerHorizontal="true"
-        android:layout_marginTop="35dp" />
-
-    <Button
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Convert YCrCb"
-        android:id="@+id/button"
-        android:onClick="convert1"
-        android:layout_alignParentBottom="true"
-        android:layout_alignParentLeft="true"
-        android:layout_alignParentStart="true" />
+        android:layout_marginTop="35dp"
+        android:background="@drawable/nomad1" />
 
     <SeekBar
         android:layout_width="1100px"
@@ -39,18 +30,33 @@
         android:layout_height="wrap_content"
         android:text="Write file"
         android:id="@+id/button2"
-        android:layout_alignBottom="@+id/button"
-        android:layout_centerHorizontal="true"
-        android:onClick="writeFile" />
+        android:onClick="writeFile"
+        android:layout_alignParentBottom="true"
+        android:layout_alignLeft="@+id/seekBar"
+        android:layout_alignStart="@+id/seekBar" />
 
     <Button
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="Read File"
         android:id="@+id/button3"
-        android:layout_alignBottom="@+id/button2"
+        android:onClick="readFile"
+        android:layout_marginLeft="81dp"
+        android:layout_marginStart="81dp"
+        android:layout_alignParentBottom="true"
+        android:layout_toRightOf="@+id/button2"
+        android:layout_toEndOf="@+id/button2" />
+
+    <CheckBox
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Show Vectors"
+        android:id="@+id/checkBox"
+        android:checked="true"
+        android:layout_alignParentBottom="true"
         android:layout_alignRight="@+id/seekBar"
         android:layout_alignEnd="@+id/seekBar"
-        android:onClick="readFile" />
+        android:layout_marginRight="79dp"
+        android:layout_marginEnd="79dp" />
 
 </RelativeLayout>

@@ -9,6 +9,7 @@ import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
+import android.widget.CheckBox;
 import android.widget.SeekBar;
 import android.widget.Toast;
 
@@ -28,7 +29,6 @@ public class MainActivity extends AppCompatActivity {
 
     Bitmap source;
     BitmapDrawable sourceDrawable;
-    DCT jpeg = null;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -62,22 +62,19 @@ public class MainActivity extends AppCompatActivity {
         });
 
         // Set up default images
-        source = BitmapFactory.decodeResource(getApplicationContext().getResources(), R.drawable.baboon164x164);
+        source = BitmapFactory.decodeResource(getApplicationContext().getResources(), R.drawable.nomad1);
         sourceDrawable = new BitmapDrawable(getResources(), source);
         frameList.add(sourceDrawable);
     }
 
-    public void convert1(View view) {
+    // Button WRITE FILE
+    public void writeFile(View view) {
         int height = source.getHeight();
         int width = source.getWidth();
         int Cwidth = width / 2 + width % 2;
 
-        // Create pixel array from source image
-        int[] sourcePixels = new int[height * width];
-        int[] YCbCrPixels = new int[height * width];
-        byte[] YPixels = new byte[height * width];
-        byte[] CrPixels = new byte[(height / 2 + height % 2) * (width / 2 + width % 2)];
-        byte[] CbPixels = new byte[(height / 2 + height % 2) * (width / 2 + width % 2)];
+        DCT jpeg = null;
+
         int[] outputPixels = new int[height * width];
 
         // RGB pixel arrays to display YCbCr channels
@@ -85,192 +82,76 @@ public class MainActivity extends AppCompatActivity {
         int[] CrDisplay = new int[height * width];
         int[] CbDisplay = new int[height * width];
 
-        // Load pixel data into bitmap
-        source.getPixels(sourcePixels, 0, width, 0, 0, width, height);
-
         // Bitmaps to hold output data
         Bitmap Y = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
         Bitmap Cr = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
         Bitmap Cb = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
         Bitmap output = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
 
-        // Convert RGB to YCbCr
-        for (int i = 0 ; i < sourcePixels.length ; ++i) {
-            int Cbbits, Crbits;
-            int x = i % width;
-            int y = i / width;
-            YCbCrPixels[i] = convert(sourcePixels[i]);
-            int Ytemp = Color.alpha(YCbCrPixels[i]);
-            YPixels[i] = (byte)(Ytemp - 128);
-            YDisplay[i] = 0xFF000000 | Ytemp << 16 | Ytemp << 8 | Ytemp;
-            if ( x % 2 == 0) {
-                if ( y % 2 == 0) { // We're keeping this one!
-                    Crbits = Color.red(YCbCrPixels[i]);
-                    Cbbits = Color.blue(YCbCrPixels[i]);
-                    CrDisplay[i] = unconvert((byte) 0, (byte) 0, Crbits - 128);
-                    CbDisplay[i] = unconvert((byte)0, Cbbits - 128, (byte)0);
-                    CrPixels[(y / 2) * Cwidth + x / 2] = (byte)(Crbits - 128);
-                    CbPixels[(y / 2) * Cwidth + x / 2] = (byte)(Cbbits - 128);
-                } else {    // below "real" pixel
-                    // Subsample
-                    Crbits = Color.red( YCbCrPixels[i - width ]);
-                    Cbbits = Color.blue(YCbCrPixels[i - width ]);
-                    CrDisplay[i] = unconvert((byte)0, (byte)0, Crbits - 128);
-                    CbDisplay[i] = unconvert((byte)0, Cbbits - 128, (byte)0);
-                }
-            } else {
-                if ( y % 2 == 0) {  // right of "real" pixel
-                    // Subsample
-                    Crbits = Color.red( YCbCrPixels[i - 1 ]);
-                    Cbbits = Color.blue(YCbCrPixels[i - 1 ]);
-                    CrDisplay[i] = unconvert((byte)0, (byte)0, Crbits - 128);
-                    CbDisplay[i] = unconvert((byte)0, Cbbits - 128, (byte)0);
-                } else {        // right and down from "real" pixel
-                    // Subsample
-                    Crbits = Color.red( YCbCrPixels[i - (width + 1) ]);
-                    Cbbits = Color.blue(YCbCrPixels[i - (width + 1) ]);
-                    CrDisplay[i] = unconvert((byte)0, (byte)0, Crbits - 128);
-                    CbDisplay[i] = unconvert((byte)0, Cbbits - 128, (byte)0);
-                }
-            }
-
-        }
-
-        // Reconstitute
-        for (int i = 0 ; i < YPixels.length ; ++i) {
-            byte Cbtemp, Crtemp;
-            int x = i % width;
-            int y = i / width;
-
-            // Realized late that the round-down does all the work for me
-            Cbtemp = CbPixels[(y / 2) * Cwidth + x / 2];
-            Crtemp = CrPixels[(y / 2) * Cwidth + x / 2];
-
-            outputPixels[i] = unconvert(YPixels[i], Cbtemp, Crtemp);
-
-        }
-
-
-        // setPixels example for reference
-        Y.setPixels(YDisplay, 0, width, 0, 0, width, height);
-        Cr.setPixels(CrDisplay, 0, width, 0, 0, width, height);
-        Cb.setPixels(CbDisplay, 0, width, 0, 0, width, height);
-        output.setPixels(outputPixels, 0, width, 0, 0, width, height);
-
-        // Create drawables to display bitmaps
-        BitmapDrawable YDrawable = new BitmapDrawable(getResources(), Y);
-        BitmapDrawable CrDrawable = new BitmapDrawable(getResources(), Cr);
-        BitmapDrawable CbDrawable = new BitmapDrawable(getResources(), Cb);
-        BitmapDrawable outputDrawable = new BitmapDrawable(getResources(), output);
-
-
         File myFile = new File(getApplicationContext().getFilesDir(), "digibro.txt");
         FileOutputStream fOut = null;
         try {
             myFile.createNewFile();
             fOut = new FileOutputStream(myFile);
-
-            // Begin DCT
-            jpeg = new DCT(YPixels, CbPixels, CrPixels, width, fOut);
-            jpeg.write();
-
+            // Old constructor:
+            // jpeg = new DCT(YPixels, CbPixels, CrPixels, width, fOut);
         } catch (Exception e) {
-            Toast.makeText(getBaseContext(), e.getMessage(),
-                    Toast.LENGTH_SHORT).show();
-            Log.d("writeError", e.getMessage());
+            // Toast.makeText(getBaseContext(), e.getMessage(),
+            // Toast.LENGTH_SHORT).show();
+            Log.d("File open error", e.getMessage());
         }
 
-        // Read data back from file
-        DCT input = null;
+        Bitmap source2 = BitmapFactory.decodeResource(getApplicationContext().getResources(), R.drawable.nomad2);
+        // BitmapDrawable source2Drawable = new BitmapDrawable(getResources(), source);
+
+        jpeg = new DCT(source, fOut);
+        DCT jpeg2 = new DCT(source2, jpeg, fOut);
+        int jpegFilesize = jpeg.getFileSize() + jpeg2.getFileSize();
+
+        Log.d("TotalFilesize", Integer.toString(jpegFilesize));
+        Log.d("FilesizeI", Integer.toString(jpeg.getFileSize()));
+        Log.d("FilesizeP", Integer.toString(jpeg2.getFileSize()));
+
+        setTitle("Orig: " + Integer.toString(width * height * 3 * 2) + "b, Mpeg: " + Integer.toString(jpegFilesize) + "b");
+
         try {
-            FileInputStream inFile = openFileInput("digibro.txt");
-            input = new DCT(inFile);
-            // input.readChannels();
-            // inFile.close();
-
-        } catch (Exception e) {
-            Toast.makeText(getBaseContext(), e.getMessage(),
-                    Toast.LENGTH_SHORT).show();
-            Log.d("readError", e.getMessage());
+            fOut.close();
+        } catch (IOException e) {
+            Log.d("File close error", "");
         }
-
-        // Reconstitute, again :P
-        int[] CbDecoded = new int[input.Y.length];
-        int[] CrDecoded = new int[input.Y.length];
-
-        for (int i = 0 ; i < input.Y.length ; ++i) {
-            byte Cbtemp, Crtemp;
-            int x = i % width;
-            int y = i / width;
-
-            // Realized late that the round-down does all the work for me
-            Cbtemp = input.Cb[(y / 2) * Cwidth + x / 2];
-            Crtemp = input.Cr[(y / 2) * Cwidth + x / 2];
-
-            CbDecoded[i] = unconvert((byte)0, Cbtemp, (byte)0);
-            CrDecoded[i] = unconvert((byte)0, (byte)0, Crtemp);
-        }
-
-        Bitmap decodedBMP = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
-        decodedBMP.setPixels(input.getOutput(), 0, width, 0, 0, width, height);
-        BitmapDrawable decodedDrawable = new BitmapDrawable(getResources(), decodedBMP);
-
-        Bitmap decodedCbBMP = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
-        decodedCbBMP.setPixels(CbDecoded, 0, width, 0, 0, width, height);
-        BitmapDrawable decodedCbDrawable = new BitmapDrawable(getResources(), decodedCbBMP);
-
-        Bitmap decodedCrBMP = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
-        decodedCrBMP.setPixels(CrDecoded, 0, width, 0, 0, width, height);
-        BitmapDrawable decodedCrDrawable = new BitmapDrawable(getResources(), decodedCrBMP);
-
-        frameList.add(outputDrawable);
-        frameList.add(decodedDrawable);
-        frameList.add(decodedCbDrawable);
-        frameList.add(decodedCrDrawable);
 
         // Debug
         Log.d("JPEGpblocks", Integer.toString(jpeg.pblocks));
-        Log.d("INPUTpblocks", Integer.toString(input.pblocks));
-
     }
 
-    // Button WRITE FILE
-    public void writeFile(View view) {
-        /*
-        if (jpeg != null) {
-            jpeg.write();
-        }
-        */
-    }
 
     // Button READ FILE
     public void readFile(View view) {
+        // Read data back from file
+        DCT input = null;
+        DCT input2 = null;
+        FileInputStream inFile = null;
+        CheckBox vecCheck = (CheckBox)findViewById(R.id.checkBox);
+        try {
+            inFile = openFileInput("digibro.txt");
+        } catch (Exception e) {
+            Toast.makeText(getBaseContext(), e.getMessage(),
+                    Toast.LENGTH_SHORT).show();
+            Log.d("FileOpenError", e.getMessage());
+        }
+        input = new DCT(inFile);
+        input2 = new DCT(inFile, input, vecCheck.isChecked());
 
-    }
+        // Pull decoded BMP right off of DCT object, ohh yeah
+        Bitmap decodedBMP = input.toRGB();
+        BitmapDrawable decodedDrawable = new BitmapDrawable(getResources(), decodedBMP);
+        Bitmap decodedBMP2 = input2.toRGB();
+        BitmapDrawable decodedDrawable2 = new BitmapDrawable(getResources(), decodedBMP2);
 
-    // Convert RGB to YCbCr
-    int convert(int c) {
-        int r = Color.red(c);
-        int g = Color.green(c);
-        int b = Color.blue(c);
+        frameList.add(decodedDrawable);
+        frameList.add(decodedDrawable2);
 
-        int Y = (int)Math.round((0 + 0.299 * r) + (0.587 * g) + (0.114 * b));
-        int Cb = (int)Math.round(128 - (0.168736 * r) - (0.331264 * g) + (0.5 * b));
-        int Cr = (int)Math.round(128 + (0.5 * r) - (0.418688 * g) - (0.081312 * b));
-
-        // Stuffing Cb into b channel, Cr into r channel, and Y into Alpha channel
-        return (Y << 24) | (Cr << 16) | Cb;
-    }
-
-    // Convert YCbCr to RGB
-    int unconvert(int Y, int Cb, int Cr) {
-        Y += 128;
-        Cb += 128;
-        Cr += 128;
-        int r = (int)Math.min(Math.max(Math.round(Y + 1.402 * (Cr - 128)), 0), 255);
-        int g = (int)Math.min(Math.max(Math.round(Y - 0.34414 * (Cb - 128) - 0.71414 * (Cr - 128)), 0), 255);
-        int b = (int)Math.min(Math.max(Math.round(Y + 1.772 * (Cb - 128)), 0), 255);
-
-        return 0xFF000000 | r << 16 | g << 8 | b;
+        // Debug
+        Log.d("INPUTpartialBlocks", Integer.toString(input.pblocks));
     }
 }
